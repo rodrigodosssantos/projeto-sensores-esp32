@@ -77,6 +77,27 @@ def receber_dados(dados: DadosSensores):
     print(f"Umidade do ar: {dados.umidade_ar} %")
     print(f"Umidade do solo: {dados.umidade_solo} %")
 
+    conexao = conectar_banco()
+    cursor = conexao.cursor()
+
+    cursor.execute("""
+        INSERT INTO leituras (
+            temperatura,
+            umidade_ar,
+            umidade_solo
+        )
+        VALUES (%s, %s, %s)
+    """, (
+        dados.temperatura,
+        dados.umidade_ar,
+        dados.umidade_solo
+    ))
+
+    conexao.commit()
+
+    cursor.close()
+    conexao.close()
+
     return {
         "status": "ok",
         "mensagem": "Dados recebidos com sucesso"
