@@ -102,3 +102,38 @@ def receber_dados(dados: DadosSensores):
         "status": "ok",
         "mensagem": "Dados recebidos com sucesso"
     }
+
+@app.get("/dados")
+def listar_dados():
+
+    conexao = conectar_banco()
+    cursor = conexao.cursor()
+
+    cursor.execute("""
+        SELECT
+            id,
+            temperatura,
+            umidade_ar,
+            umidade_solo,
+            data_hora
+        FROM leituras
+        ORDER BY data_hora DESC
+    """)
+
+    resultados = cursor.fetchall()
+
+    cursor.close()
+    conexao.close()
+
+    dados = []
+
+    for linha in resultados:
+        dados.append({
+            "id": linha[0],
+            "temperatura": linha[1],
+            "umidade_ar": linha[2],
+            "umidade_solo": linha[3],
+            "data_hora": linha[4]
+        })
+
+    return dados
