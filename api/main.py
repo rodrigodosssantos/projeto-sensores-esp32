@@ -20,6 +20,27 @@ class DadosSensores(BaseModel):
 def conectar_banco():
     return psycopg.connect(DATABASE_URL)
 
+def criar_tabela():
+    conexao = conectar_banco()
+
+    cursor = conexao.cursor()
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS leituras (
+            id SERIAL PRIMARY KEY,
+            temperatura REAL NOT NULL,
+            umidade_ar REAL NOT NULL,
+            umidade_solo INTEGER NOT NULL,
+            data_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    conexao.commit()
+
+    cursor.close()
+    conexao.close()
+
+criar_tabela()
 
 @app.get("/")
 def inicio():
