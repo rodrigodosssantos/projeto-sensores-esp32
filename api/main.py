@@ -1,6 +1,7 @@
 
 from fastapi import FastAPI
 from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
 import os
 import psycopg
 
@@ -10,6 +11,13 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 print("DATABASE_URL configurada:", DATABASE_URL is not None)
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Para testes; restrinja ao domínio do painel em produção.
+    allow_credentials=False,
+    allow_methods=["GET", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 
 class DadosSensores(BaseModel):
