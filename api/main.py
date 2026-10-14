@@ -1,3 +1,4 @@
+
 from fastapi import FastAPI
 from pydantic import BaseModel
 import os
@@ -12,6 +13,7 @@ app = FastAPI()
 
 
 class DadosSensores(BaseModel):
+    codigo_esp32: str
     temperatura: float
     umidade_ar: float
     umidade_solo: int
@@ -20,27 +22,6 @@ class DadosSensores(BaseModel):
 def conectar_banco():
     return psycopg.connect(DATABASE_URL)
 
-def criar_tabela():
-    conexao = conectar_banco()
-
-    cursor = conexao.cursor()
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS leituras (
-            id SERIAL PRIMARY KEY,
-            temperatura REAL NOT NULL,
-            umidade_ar REAL NOT NULL,
-            umidade_solo INTEGER NOT NULL,
-            data_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-
-    conexao.commit()
-
-    cursor.close()
-    conexao.close()
-
-criar_tabela()
 
 @app.get("/")
 def inicio():
@@ -51,7 +32,6 @@ def inicio():
 
 @app.get("/teste-banco")
 def teste_banco():
-
     try:
         conexao = conectar_banco()
         conexao.close()
@@ -62,7 +42,6 @@ def teste_banco():
         }
 
     except Exception as erro:
-
         return {
             "status": "erro",
             "mensagem": str(erro)
@@ -71,69 +50,64 @@ def teste_banco():
 
 @app.post("/dados")
 def receber_dados(dados: DadosSensores):
-
     print("Dados recebidos:")
+    print(f"ESP32: {dados.codigo_esp32}")
     print(f"Temperatura: {dados.temperatura} °C")
     print(f"Umidade do ar: {dados.umidade_ar} %")
     print(f"Umidade do solo: {dados.umidade_solo} %")
 
-    conexao = conectar_banco()
-    cursor = conexao.cursor()
-
-    cursor.execute("""
-        INSERT INTO leituras (
-            temperatura,
-            umidade_ar,
-            umidade_solo
-        )
-        VALUES (%s, %s, %s)
-    """, (
-        dados.temperatura,
-        dados.umidade_ar,
-        dados.umidade_solo
-    ))
-
-    conexao.commit()
-
-    cursor.close()
-    conexao.close()
+    with conectar_banco() as conexao:
+        with conexao.cursor() as cursor:
+            cursor.execute("""
+                INSERT INTO public.leituras (
+                    codigo_esp32,
+                    temperatura,
+                    umidade_ar,
+                    umidade_solo
+                )
+                VALUES (%s, %s, %s, %s)
+            """, (
+                dados.codigo_esp32,
+                dados.temperatura,
+                dados.umidade_ar,
+                dados.umidade_solo
+            ))
 
     return {
         "status": "ok",
-        "mensagem": "Dados recebidos com sucesso"
+        "mensagem": "Dados recebidos e salvos no banco",
+        "codigo_esp32": dados.codigo_esp32
     }
+
 
 @app.get("/dados")
 def listar_dados():
+    with conectar_banco() as conexao:
+        with conexao.cursor() as cursor:
+            cursor.execute("""
+                SELECT
+                    id,
+                    codigo_esp32,
+                    temperatura,
+                    umidade_ar,
+                    umidade_solo,
+                    data_hora
+                FROM public.leituras
+                ORDER BY data_hora DESC
+            """)
 
-    conexao = conectar_banco()
-    cursor = conexao.cursor()
-
-    cursor.execute("""
-        SELECT
-            id,
-            temperatura,
-            umidade_ar,
-            umidade_solo,
-            data_hora
-        FROM leituras
-        ORDER BY data_hora DESC
-    """)
-
-    resultados = cursor.fetchall()
-
-    cursor.close()
-    conexao.close()
+            resultados = cursor.fetchall()
 
     dados = []
 
     for linha in resultados:
         dados.append({
             "id": linha[0],
-            "temperatura": linha[1],
-            "umidade_ar": linha[2],
-            "umidade_solo": linha[3],
-            "data_hora": linha[4]
+            "codigo_esp32": linha[1],
+            "temperatura": linha[2],
+            "umidade_ar": linha[3],
+            "umidade_solo": linha[4],
+            "data_hora": linha[5]
         })
 
     return dados
